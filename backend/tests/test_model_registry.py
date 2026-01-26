@@ -1,0 +1,37 @@
+"""Test model registry."""
+from models.registry import ModelRegistry, QWEN_SPEAKERS
+
+
+def test_model_registry_defaults(tmp_path):
+    """Test that registry has default Qwen3 models."""
+    registry = ModelRegistry(models_dir=tmp_path)
+    models = registry.list_models()
+    assert len(models) == 4
+    assert all(m.engine == "qwen3" for m in models)
+
+
+def test_model_registry_clone_models(tmp_path):
+    """Test clone mode models."""
+    registry = ModelRegistry(models_dir=tmp_path)
+    clone_models = registry.get_models_by_mode("clone")
+    assert len(clone_models) == 2
+    assert all("Base" in m.name for m in clone_models)
+
+
+def test_model_registry_custom_models(tmp_path):
+    """Test custom mode models."""
+    registry = ModelRegistry(models_dir=tmp_path)
+    custom_models = registry.get_models_by_mode("custom")
+    assert len(custom_models) == 2
+    assert all("CustomVoice" in m.name for m in custom_models)
+    for m in custom_models:
+        assert m.speakers == QWEN_SPEAKERS
+
+
+def test_qwen_speakers():
+    """Test preset speakers list."""
+    assert len(QWEN_SPEAKERS) == 9
+    assert "Ryan" in QWEN_SPEAKERS
+    assert "Aiden" in QWEN_SPEAKERS
+    assert "Vivian" in QWEN_SPEAKERS
+    assert "Sohee" in QWEN_SPEAKERS

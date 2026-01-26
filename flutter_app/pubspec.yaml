@@ -1,0 +1,28 @@
+name: mimika_studio
+description: "MimikaStudio - Local-first Voice Cloning with Qwen3-TTS"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.2.0
+  just_audio: ^0.9.40
+  file_picker: ^8.0.0
+  provider: ^6.1.0
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  syncfusion_flutter_pdfviewer: ^29.1.41
+  url_launcher: ^6.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
