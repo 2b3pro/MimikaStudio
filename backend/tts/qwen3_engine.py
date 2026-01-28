@@ -14,6 +14,7 @@ import numpy as np
 from pathlib import Path
 from typing import Optional, Tuple
 from dataclasses import dataclass
+from scipy import signal
 
 # Supported languages
 LANGUAGES = {
@@ -220,10 +221,15 @@ class Qwen3TTSEngine:
             **gen_kwargs,
         )
 
+        # Apply speed adjustment if needed
+        audio_data = np.asarray(wavs[0])
+        if speed != 1.0:
+            audio_data = self._adjust_speed(audio_data, sr, speed)
+
         # Save to file
         short_uuid = str(uuid.uuid4())[:8]
         output_file = self.outputs_dir / f"qwen3-clone-{short_uuid}.wav"
-        sf.write(str(output_file), np.asarray(wavs[0]), sr)
+        sf.write(str(output_file), audio_data, sr)
 
         return output_file
 
@@ -233,6 +239,7 @@ class Qwen3TTSEngine:
         speaker: str,
         language: str = "Auto",
         instruct: Optional[str] = None,
+        speed: float = 1.0,
         params: Optional[GenerationParams] = None,
     ) -> Path:
         """Generate speech using a preset speaker voice.
@@ -242,6 +249,7 @@ class Qwen3TTSEngine:
             speaker: Preset speaker name (Ryan, Aiden, Vivian, etc.)
             language: Target language
             instruct: Style instruction for the voice (e.g., "Speak slowly and calmly")
+            speed: Speech speed multiplier (0.5-2.0)
             params: Advanced generation parameters
 
         Returns:
@@ -274,10 +282,15 @@ class Qwen3TTSEngine:
             **gen_kwargs,
         )
 
+        # Apply speed adjustment if needed
+        audio_data = np.asarray(wavs[0])
+        if speed != 1.0:
+            audio_data = self._adjust_speed(audio_data, sr, speed)
+
         # Save to file
         short_uuid = str(uuid.uuid4())[:8]
         output_file = self.outputs_dir / f"qwen3-custom-{short_uuid}.wav"
-        sf.write(str(output_file), np.asarray(wavs[0]), sr)
+        sf.write(str(output_file), audio_data, sr)
 
         return output_file
 
@@ -382,6 +395,35 @@ class Qwen3TTSEngine:
             torch.mps.empty_cache()
         elif self.device and self.device.startswith("cuda"):
             torch.cuda.empty_cache()
+
+    def _adjust_speed(self, audio: np.ndarray, sr: int, speed: float) -> np.ndarray:
+        """Adjust audio playback speed using resampling.
+
+        Args:
+            audio: Audio samples
+            sr: Sample rate
+            speed: Speed multiplier (>1 = faster, <1 = slower)
+
+        Returns:
+            Speed-adjusted audio samples
+        """
+        if speed == 1.0:
+            return audio
+
+        # Clamp speed to reasonable range
+        speed = max(0.5, min(2.0, speed))
+
+        # Resample to adjust speed while maintaining pitch
+        # To speed up: use fewer samples (resample to shorter length)
+        # To slow down: use more samples (resample to longer length)
+        original_length = len(audio)
+        new_length = int(original_length / speed)
+
+        if new_length == original_length:
+            return audio
+
+        # Use scipy's resample for high-quality resampling
+        return signal.resample(audio, new_length)
 
     def get_speakers(self) -> list:
         """Get available preset speakers for CustomVoice mode."""

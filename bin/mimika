@@ -12,12 +12,12 @@ Usage:
     mimika qwen3 book.epub --speaker Sohee --output audiobook.wav
 
     # Qwen3 Voice Clone (clone from reference audio)
-    mimika qwen3 "Hello, world!" --clone --reference voice.wav
-    mimika qwen3 book.pdf --clone --reference speaker.wav --output book.wav
+    mimika qwen3 "Hello, world!" --clone --reference Alina.wav
+    mimika qwen3 book.pdf --clone --reference Bella.wav --output book.wav
 
     # XTTS Voice Clone
-    mimika xtts "Hello, world!" --voice Natasha --language en
-    mimika xtts document.docx --voice Suzan --output output.wav
+    mimika xtts "Hello, world!" --voice Alina --language en
+    mimika xtts document.docx --voice Bella --output output.wav
 
 Supported file formats: .txt, .pdf, .epub, .docx, .doc
 """
@@ -443,8 +443,8 @@ def main():
 Examples:
   %(prog)s kokoro "Hello, world!" --voice bf_emma
   %(prog)s qwen3 "Hello!" --speaker Ryan --style "whisper softly"
-  %(prog)s qwen3 book.pdf --clone --reference voice.wav
-  %(prog)s xtts "Hello!" --voice Natasha
+  %(prog)s qwen3 book.pdf --clone --reference Alina.wav
+  %(prog)s xtts "Hello!" --voice Bella
   %(prog)s voices --engine kokoro
         """
     )

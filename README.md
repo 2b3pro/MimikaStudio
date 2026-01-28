@@ -56,7 +56,7 @@ MimikaStudio isn't just a TTS engine wrapper:
 
 - **Audiobook Creator**: Convert entire documents (PDF, TXT, MD) into audiobook files with a single click. The system intelligently chunks text at sentence boundaries, generates audio for each segment using Kokoro TTS, and concatenates everything into a single WAV file. Track progress in real-time, manage your audiobook library, and play any generated audiobook with full playback controls (play, pause, stop).
 
-![PDF Reader with TTS](assets/03-pdf-reader.png)
+![PDF Reader & Audiobook Creator](assets/03-pdf-audiobook-creator.png)
 
 - **Unified Voice Library**: All your custom voice samples (XTTS and Qwen3) in one unified list. Upload once, use with either engine.
 
@@ -165,11 +165,12 @@ Full command-line interface for voice cloning and TTS generation.
 ./bin/mimika qwen3 book.epub --speaker Sohee --output audiobook.wav
 
 # Qwen3 Voice Clone (clone from reference audio)
-./bin/mimika qwen3 "Hello, world!" --clone --reference voice.wav
-./bin/mimika qwen3 book.pdf --clone --reference speaker.wav --output book.wav
+./bin/mimika qwen3 "Hello, world!" --clone --reference Alina.wav
+./bin/mimika qwen3 book.pdf --clone --reference Bella.wav --output book.wav
 
 # XTTS Voice Clone
-./bin/mimika xtts "Hello, world!" --voice Natasha --language en
+./bin/mimika xtts "Hello, world!" --voice Alina --language en
+./bin/mimika xtts document.docx --voice Bella --output output.wav
 
 # List available voices
 ./bin/mimika voices --engine kokoro

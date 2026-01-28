@@ -482,6 +482,7 @@ async def qwen3_generate(request: Qwen3Request):
                 speaker=request.speaker,
                 language=request.language,
                 instruct=request.instruct,
+                speed=request.speed,
                 params=params,
             )
 
