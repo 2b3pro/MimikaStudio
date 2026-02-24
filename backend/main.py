@@ -25,7 +25,7 @@ import soundfile as sf
 
 from database import init_db, seed_db, get_connection
 from version import VERSION, VERSION_NAME
-from tts.kokoro_engine import get_kokoro_engine, BRITISH_VOICES, DEFAULT_VOICE
+from tts.kokoro_engine import get_kokoro_engine, KOKORO_VOICES, BRITISH_VOICES, DEFAULT_VOICE
 from tts.qwen3_engine import get_qwen3_engine, GenerationParams, QWEN_SPEAKERS, unload_all_engines
 from tts.chatterbox_engine import get_chatterbox_engine, ChatterboxParams
 from tts.text_chunking import smart_chunk_text
@@ -208,10 +208,14 @@ _default_local_origins = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:8000",
+    "http://localhost:8899",
     "http://127.0.0.1",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:8000",
+    "http://127.0.0.1:8899",
+    "http://localhost:7799",
+    "http://127.0.0.1:7799",
 ]
 _cors_origins_env = os.getenv("MIMIKA_CORS_ORIGINS", "")
 _configured_cors_origins = [origin.strip() for origin in _cors_origins_env.split(",") if origin.strip()]
@@ -452,7 +456,43 @@ def _generate_chunked_audio(
     merged = merge_audio_chunks(all_audio, sample_rate, crossfade_ms=crossfade_ms)
     return merged, sample_rate, len(chunks)
 
-# Health check
+# Health check (root — detailed, for humans and monitoring)
+@app.get("/health")
+async def health_root():
+    """Rich health endpoint with service details."""
+    import platform
+
+    try:
+        import mlx.core as mx
+        mlx_available = bool(mx.metal.is_available())
+    except Exception:
+        mlx_available = False
+
+    engines = ["kokoro", "qwen3", "chatterbox", "indextts2"]
+    port = int(os.environ.get("MIMIKA_PORT", "8899"))
+
+    return {
+        "status": "ok",
+        "service": "mimikastudio",
+        "version": VERSION,
+        "version_name": VERSION_NAME,
+        "port": port,
+        "device": "MLX (Apple Silicon)" if mlx_available else "CPU",
+        "arch": platform.machine(),
+        "engines": engines,
+        "endpoints": {
+            "health": "/health",
+            "system_info": "/api/system/info",
+            "system_stats": "/api/system/stats",
+            "kokoro_generate": "POST /api/kokoro/generate",
+            "qwen3_generate": "POST /api/qwen3/generate",
+            "chatterbox_generate": "POST /api/chatterbox/generate",
+            "voices": "/api/kokoro/voices, /api/qwen3/voices, /api/chatterbox/voices",
+        },
+    }
+
+
+# Health check (API — lightweight, for programmatic checks)
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "service": "mimikastudio"}
@@ -621,10 +661,11 @@ async def list_all_custom_voices():
 
 @app.post("/api/kokoro/generate")
 async def kokoro_generate(request: KokoroRequest):
-    """Generate speech using Kokoro with predefined British voice."""
+    """Generate speech using Kokoro voice (built-in or blended)."""
     try:
         engine = get_kokoro_engine()
-        voice = request.voice if request.voice in BRITISH_VOICES else DEFAULT_VOICE
+        # Accept any known voice: built-in or blended
+        voice = request.voice
 
         audio, sample_rate, _ = _generate_chunked_audio(
             text=request.text,
@@ -650,19 +691,125 @@ async def kokoro_generate(request: KokoroRequest):
 
 @app.get("/api/kokoro/voices")
 async def kokoro_list_voices():
-    """List available British Kokoro voices."""
+    """List all available Kokoro voices (built-in + blended)."""
+    engine = get_kokoro_engine()
+    all_voices = engine.get_all_voices()
     voices = []
-    for code, info in BRITISH_VOICES.items():
+    for code, info in all_voices.items():
         voices.append({
             "code": code,
             "name": info["name"],
             "gender": info["gender"],
+            "accent": info.get("accent", "unknown"),
             "grade": info["grade"],
-            "is_default": code == DEFAULT_VOICE
+            "is_default": code == DEFAULT_VOICE,
+            "is_blend": info.get("accent") == "blended",
+            "blend_source": info.get("blend_source"),
         })
-    # Sort by grade (best first)
-    voices.sort(key=lambda v: v["grade"])
+    # Sort: blends first, then by grade
+    voices.sort(key=lambda v: (0 if v["is_blend"] else 1, v["grade"]))
     return {"voices": voices, "default": DEFAULT_VOICE}
+
+
+# ============== Kokoro Voice Blending ==============
+
+class KokoroCompareRequest(BaseModel):
+    voices: list[str]                      # 2+ voice codes or blend names to compare
+    text: str = "Hello, this is a voice comparison test."
+    speed: float = 1.0
+
+class KokoroBlendRequest(BaseModel):
+    name: str                              # Name for the blended voice
+    voices: list[str]                      # Voice codes to blend (min 2)
+    weights: Optional[list[float]] = None  # Weights (must sum to 1.0)
+
+@app.post("/api/kokoro/blend")
+async def kokoro_blend_voices(request: KokoroBlendRequest):
+    """Create a blended voice from multiple Kokoro voice embeddings.
+
+    The blended voice is saved and can be used in /api/kokoro/generate
+    by its name. Weights must sum to 1.0.
+    """
+    try:
+        engine = get_kokoro_engine()
+        recipe = engine.blend_voices(
+            name=request.name,
+            voices=request.voices,
+            weights=request.weights,
+        )
+        return {
+            "status": "ok",
+            "blend": recipe,
+            "message": f"Blended voice '{request.name}' created. Use it in /api/kokoro/generate with voice='{request.name}'.",
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+@app.get("/api/kokoro/blends")
+async def kokoro_list_blends():
+    """List all saved blended voices with their recipes."""
+    engine = get_kokoro_engine()
+    return {"blends": engine.get_blends()}
+
+@app.delete("/api/kokoro/blend/{name}")
+async def kokoro_delete_blend(name: str):
+    """Delete a blended voice."""
+    engine = get_kokoro_engine()
+    if engine.delete_blend(name):
+        return {"status": "ok", "message": f"Blend '{name}' deleted."}
+    raise HTTPException(status_code=404, detail=f"Blend '{name}' not found.")
+
+@app.post("/api/kokoro/blend/{name}/preview")
+async def kokoro_preview_blend(name: str, text: str = "Hello, this is a preview of my blended voice."):
+    """Generate a preview audio with a blended voice."""
+    engine = get_kokoro_engine()
+    if name not in engine.get_blends():
+        raise HTTPException(status_code=404, detail=f"Blend '{name}' not found.")
+
+    audio, sample_rate = engine.generate_audio(text=text, voice=name, speed=1.0)
+    short_uuid = str(uuid.uuid4())[:8]
+    output_path = outputs_dir / f"kokoro-blend-preview-{name}-{short_uuid}.wav"
+    sf.write(str(output_path), audio, sample_rate)
+
+    return {
+        "audio_url": f"/audio/{output_path.name}",
+        "filename": output_path.name,
+        "blend": name,
+    }
+
+@app.post("/api/kokoro/compare")
+async def kokoro_compare_voices(request: KokoroCompareRequest):
+    """Compare multiple voices side-by-side by generating the same text with each."""
+    if len(request.voices) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 voices required for comparison.")
+    engine = get_kokoro_engine()
+    all_voices = engine.get_all_voices()
+    comparisons = []
+    for voice in request.voices:
+        try:
+            if voice not in all_voices:
+                comparisons.append({"voice": voice, "error": f"Unknown voice: {voice}"})
+                continue
+            audio, sample_rate, _ = _generate_chunked_audio(
+                text=request.text,
+                max_chars_per_chunk=1500,
+                crossfade_ms=40,
+                smart_chunking=True,
+                generate_fn=lambda chunk, v=voice: engine.generate_audio(chunk, voice=v, speed=request.speed),
+            )
+            short_uuid = str(uuid.uuid4())[:8]
+            output_path = outputs_dir / f"kokoro-compare-{voice}-{short_uuid}.wav"
+            sf.write(str(output_path), audio, sample_rate)
+            comparisons.append({
+                "voice": voice,
+                "audio_url": f"/audio/{output_path.name}",
+            })
+        except Exception as e:
+            comparisons.append({"voice": voice, "error": str(e)})
+    return {"comparisons": comparisons, "text": request.text}
+
 
 # ============== Qwen3-TTS Endpoints (Voice Clone + Custom Voice) ==============
 
@@ -2462,4 +2609,4 @@ async def api_update_setting(request: SettingsUpdateRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("MIMIKA_PORT", "8899")))
