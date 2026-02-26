@@ -1,6 +1,7 @@
 """Chatterbox Multilingual TTS engine wrapper for voice cloning."""
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,12 +12,30 @@ import soundfile as sf
 from scipy import signal
 
 from .audio_utils import merge_audio_chunks
+from .runtime_paths import get_cloner_user_voices_dir, get_runtime_output_dir
 from .text_chunking import smart_chunk_text
 
-try:
-    import mlx.core as mx
-except Exception:  # pragma: no cover - fallback for non-MLX systems
-    mx = None
+# Keep MLX import lazy to avoid backend startup aborts on machines without a
+# usable Metal device context.
+mx = None
+
+
+_EVENT_TAG_PATTERN = re.compile(
+    r"\[(clear\s+throat|sigh|shush|cough|groan|sniff|gasp|chuckle|laugh)\]",
+    re.IGNORECASE,
+)
+
+_EVENT_TAG_EXAGGERATION_BOOST = {
+    "clear throat": 0.15,
+    "sigh": 0.25,
+    "shush": 0.35,
+    "cough": 0.30,
+    "groan": 0.35,
+    "sniff": 0.20,
+    "gasp": 0.60,
+    "chuckle": 0.45,
+    "laugh": 0.65,
+}
 
 
 @dataclass
@@ -34,18 +53,17 @@ class ChatterboxEngine:
     def __init__(self) -> None:
         self.model = None
         self.device: Optional[str] = None
-        self.outputs_dir = Path(__file__).parent.parent / "outputs"
-        self.outputs_dir.mkdir(parents=True, exist_ok=True)
+        self.outputs_dir = get_runtime_output_dir()
 
         self.sample_voices_dir = (
             Path(__file__).parent.parent / "data" / "samples" / "voices"
         )
-        self.sample_voices_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.sample_voices_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
 
-        self.user_voices_dir = (
-            Path(__file__).parent.parent / "data" / "user_voices" / "chatterbox"
-        )
-        self.user_voices_dir.mkdir(parents=True, exist_ok=True)
+        self.user_voices_dir = get_cloner_user_voices_dir()
 
     def _get_device(self) -> str:
         if mx is not None and mx.metal.is_available():
@@ -90,6 +108,69 @@ class ChatterboxEngine:
             return audio
         return signal.resample(audio, new_length)
 
+    @staticmethod
+    def _clamp_exaggeration(value: float) -> float:
+        return max(0.0, min(1.0, float(value)))
+
+    def _build_expressive_segments(
+        self,
+        text: str,
+        base_exaggeration: float,
+        max_chars: int,
+    ) -> list[tuple[str, float]]:
+        """
+        Interpret UI event tags as non-spoken control markers and apply
+        boosted expressive delivery to following text segments.
+        """
+        raw_text = (text or "").strip()
+        if not raw_text:
+            return []
+
+        base_exaggeration = self._clamp_exaggeration(base_exaggeration)
+        matches = list(_EVENT_TAG_PATTERN.finditer(raw_text))
+        if not matches:
+            chunks = (
+                smart_chunk_text(raw_text, max_chars=max_chars)
+                if max_chars and len(raw_text) > max_chars
+                else [raw_text]
+            )
+            return [(chunk, base_exaggeration) for chunk in chunks if chunk.strip()]
+
+        segments: list[tuple[str, float]] = []
+        cursor = 0
+        current_exaggeration = base_exaggeration
+
+        for match in matches:
+            leading_text = raw_text[cursor:match.start()].strip()
+            if leading_text:
+                segments.append((leading_text, current_exaggeration))
+                current_exaggeration = base_exaggeration
+
+            tag = re.sub(r"\s+", " ", match.group(1).strip().lower())
+            boosted_exaggeration = self._clamp_exaggeration(
+                base_exaggeration + _EVENT_TAG_EXAGGERATION_BOOST.get(tag, 0.0)
+            )
+            current_exaggeration = boosted_exaggeration
+            cursor = match.end()
+
+        trailing_text = raw_text[cursor:].strip()
+        if trailing_text:
+            segments.append((trailing_text, current_exaggeration))
+
+        expanded_segments: list[tuple[str, float]] = []
+        for segment_text, segment_exaggeration in segments:
+            chunks = (
+                smart_chunk_text(segment_text, max_chars=max_chars)
+                if max_chars and len(segment_text) > max_chars
+                else [segment_text]
+            )
+            for chunk in chunks:
+                chunk = chunk.strip()
+                if chunk:
+                    expanded_segments.append((chunk, segment_exaggeration))
+
+        return expanded_segments
+
     def generate_voice_clone(
         self,
         text: str,
@@ -105,13 +186,13 @@ class ChatterboxEngine:
         self.load_model()
         if params is None:
             params = ChatterboxParams()
+        params.exaggeration = self._clamp_exaggeration(params.exaggeration)
 
-        chunks = (
-            smart_chunk_text(text, max_chars=max_chars)
-            if max_chars and len(text) > max_chars
-            else [text]
+        chunks = self._build_expressive_segments(
+            text=text,
+            base_exaggeration=params.exaggeration,
+            max_chars=max_chars,
         )
-        chunks = [c for c in chunks if c.strip()]
         if not chunks:
             raise ValueError("Text cannot be empty")
 
@@ -119,13 +200,13 @@ class ChatterboxEngine:
 
         all_audio = []
         sample_rate = 24000
-        for chunk in chunks:
+        for chunk, chunk_exaggeration in chunks:
             self._seed(params.seed)
             results = self.model.generate(  # type: ignore[call-arg]
                 text=chunk,
                 lang_code=language,
                 ref_audio=ref_audio_path,
-                exaggeration=params.exaggeration,
+                exaggeration=chunk_exaggeration,
                 temperature=params.temperature,
                 cfg_weight=params.cfg_weight,
                 verbose=False,

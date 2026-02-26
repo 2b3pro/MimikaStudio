@@ -20,12 +20,16 @@ Grouped by endpoint category:
 import io
 import struct
 import tempfile
+import zipfile
+import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
+import main
 from main import app
 
 
@@ -59,6 +63,98 @@ def _make_minimal_wav(
     buf.write(b"data")
     buf.write(struct.pack("<I", data_size))
     buf.write(b"\x00" * data_size)
+    buf.seek(0)
+    return buf
+
+
+def _make_minimal_docx(text: str) -> io.BytesIO:
+    """Create a minimal DOCX-compatible zip with a single paragraph."""
+    escaped = (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>""",
+        )
+        archive.writestr(
+            "_rels/.rels",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>""",
+        )
+        archive.writestr(
+            "word/document.xml",
+            f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>{escaped}</w:t></w:r></w:p>
+  </w:body>
+</w:document>""",
+        )
+    buf.seek(0)
+    return buf
+
+
+def _make_minimal_epub(text: str, title: str = "EPUB Sample") -> io.BytesIO:
+    """Create a minimal EPUB file with one XHTML chapter."""
+    escaped_text = (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+    escaped_title = (
+        title.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("mimetype", "application/epub+zip")
+        archive.writestr(
+            "META-INF/container.xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>""",
+        )
+        archive.writestr(
+            "OEBPS/content.opf",
+            f"""<?xml version="1.0" encoding="UTF-8"?>
+<package version="3.0" xmlns="http://www.idpf.org/2007/opf">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>{escaped_title}</dc:title>
+  </metadata>
+  <manifest>
+    <item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="ch1"/>
+  </spine>
+</package>""",
+        )
+        archive.writestr(
+            "OEBPS/chapter1.xhtml",
+            f"""<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head><title>{escaped_title}</title></head>
+  <body>
+    <h1>{escaped_title}</h1>
+    <p>{escaped_text}</p>
+  </body>
+</html>""",
+        )
     buf.seek(0)
     return buf
 
@@ -124,6 +220,130 @@ class TestSystemEndpoints:
         assert isinstance(data["cpu_percent"], (int, float))
         assert isinstance(data["ram_used_gb"], (int, float))
         assert isinstance(data["ram_total_gb"], (int, float))
+
+    def test_system_folders_returns_200(self, client):
+        resp = client.get("/api/system/folders")
+        assert resp.status_code == 200
+
+    def test_system_folders_has_paths(self, client):
+        data = client.get("/api/system/folders").json()
+        assert "folders" in data
+        assert isinstance(data["folders"], list)
+        assert len(data["folders"]) > 0
+
+
+class TestReadAloudDocumentEndpoints:
+    """Read Aloud document listing and text extraction endpoints."""
+
+    def test_pdf_list_returns_documents(self, client):
+        resp = client.get("/api/pdf/list")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "documents" in data
+        assert isinstance(data["documents"], list)
+
+    def test_extract_markdown_text_returns_plain_text(self, client):
+        markdown = b"# Title\n\nThis is **markdown** with a [link](https://example.com)."
+        resp = client.post(
+            "/api/pdf/extract-text",
+            files={"file": ("sample.md", markdown, "text/markdown")},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["type"] == "md"
+        assert "Title" in data["text"]
+        assert "**" not in data["text"]
+
+    def test_extract_docx_text_returns_content(self, client):
+        docx = _make_minimal_docx("Read aloud support for docx content")
+        resp = client.post(
+            "/api/pdf/extract-text",
+            files={
+                "file": (
+                    "sample.docx",
+                    docx.getvalue(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ),
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["type"] == "docx"
+        assert "docx content" in data["text"].lower()
+
+    def test_extract_epub_text_returns_content(self, client):
+        epub = _make_minimal_epub("EPUB extraction for read aloud is active.")
+        resp = client.post(
+            "/api/pdf/extract-text",
+            files={"file": ("sample.epub", epub.getvalue(), "application/epub+zip")},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["type"] == "epub"
+        assert "epub extraction" in data["text"].lower()
+
+    def test_audiobook_generate_from_file_accepts_docx(self, client):
+        fake_job = SimpleNamespace(
+            job_id="docxjob1",
+            status=SimpleNamespace(value="started"),
+            total_chunks=2,
+            total_chars=128,
+            chapters=["chapter-1"],
+            title="DOCX Job",
+        )
+        docx = _make_minimal_docx("DOCX audiobook request text")
+        with patch("tts.audiobook.create_audiobook_from_file", return_value=fake_job):
+            resp = client.post(
+                "/api/audiobook/generate-from-file",
+                files={
+                    "file": (
+                        "sample.docx",
+                        docx.getvalue(),
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    ),
+                },
+                data={"title": "DOCX Job"},
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["job_id"] == "docxjob1"
+        assert data["status"] == "started"
+
+    def test_audiobook_generate_from_file_accepts_epub(self, client):
+        fake_job = SimpleNamespace(
+            job_id="epubjob1",
+            status=SimpleNamespace(value="started"),
+            total_chunks=3,
+            total_chars=256,
+            chapters=["chapter-1", "chapter-2"],
+            title="EPUB Job",
+        )
+        epub = _make_minimal_epub("EPUB audiobook request text")
+        with patch("tts.audiobook.create_audiobook_from_file", return_value=fake_job):
+            resp = client.post(
+                "/api/audiobook/generate-from-file",
+                files={"file": ("sample.epub", epub.getvalue(), "application/epub+zip")},
+                data={"title": "EPUB Job"},
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["job_id"] == "epubjob1"
+        assert data["status"] == "started"
+
+
+class TestJobsEndpoints:
+    """Unified jobs queue endpoint."""
+
+    def test_jobs_returns_200(self, client):
+        resp = client.get("/api/jobs")
+        assert resp.status_code == 200
+
+    def test_jobs_has_expected_shape(self, client):
+        data = client.get("/api/jobs").json()
+        assert "jobs" in data
+        assert "total" in data
+        assert isinstance(data["jobs"], list)
+        assert isinstance(data["total"], int)
 
 
 # ===================================================================
@@ -229,6 +449,31 @@ class TestQwen3Generation:
         resp = client.post("/api/qwen3/generate/stream", json={"mode": "clone"})
         assert resp.status_code == 422
 
+    def test_generate_clone_invalid_reference_audio_returns_400(self, client, tmp_path):
+        bad_audio = tmp_path / "bad.wav"
+        bad_audio.write_bytes(b"this-is-not-valid-audio")
+
+        engine = MagicMock()
+        engine.get_saved_voices.return_value = [
+            {"name": "badvoice", "audio_path": str(bad_audio), "transcript": ""}
+        ]
+
+        with patch("main._ensure_qwen3_model_ready"), patch(
+            "main.get_qwen3_engine", return_value=engine
+        ):
+            resp = client.post(
+                "/api/qwen3/generate",
+                json={
+                    "text": "hello world",
+                    "mode": "clone",
+                    "voice_name": "badvoice",
+                    "model_size": "0.6B",
+                    "model_quantization": "bf16",
+                },
+            )
+        assert resp.status_code == 400
+        assert "cannot be decoded" in str(resp.json()).lower()
+
 
 class TestQwen3Voices:
     """Voice CRUD: list, upload, delete, update, audio preview."""
@@ -251,6 +496,27 @@ class TestQwen3Voices:
         )
         # Should succeed (200) or engine not installed (503/500)
         assert resp.status_code in (200, 500, 503)
+
+    def test_upload_voice_does_not_require_engine_load(self, client):
+        """Uploading voices should work even if Qwen3 model runtime is unavailable."""
+        wav = _make_minimal_wav()
+        with patch("main.get_qwen3_engine", side_effect=ImportError("mlx unavailable")):
+            resp = client.post(
+                "/api/qwen3/voices",
+                data={"name": "__test_upload_no_engine__", "transcript": "hello world"},
+                files={"file": ("test.wav", wav, "audio/wav")},
+            )
+        assert resp.status_code == 200
+
+    def test_upload_voice_without_transcript_is_allowed(self, client):
+        """Transcript is optional for Qwen3 upload."""
+        wav = _make_minimal_wav()
+        resp = client.post(
+            "/api/qwen3/voices",
+            data={"name": "__test_upload_no_transcript__"},
+            files={"file": ("test.wav", wav, "audio/wav")},
+        )
+        assert resp.status_code == 200
 
     def test_delete_voice_nonexistent_returns_404(self, client):
         resp = client.delete("/api/qwen3/voices/__surely_does_not_exist__")
@@ -604,6 +870,22 @@ class TestAudiobookList:
     def test_list_has_total(self, client):
         data = client.get("/api/audiobook/list").json()
         assert "total" in data
+
+    def test_list_migrates_legacy_backend_outputs(self, client):
+        unique = uuid.uuid4().hex[:8]
+        filename = f"audiobook-legacy-{unique}.mp3"
+        legacy_file = main._backend_dir / "outputs" / filename
+        active_file = main.outputs_dir / filename
+        legacy_file.parent.mkdir(parents=True, exist_ok=True)
+        legacy_file.write_bytes(b"ID3")
+        try:
+            data = client.get("/api/audiobook/list").json()
+            filenames = {row.get("filename") for row in data.get("audiobooks", [])}
+            assert filename in filenames
+            assert active_file.exists()
+        finally:
+            active_file.unlink(missing_ok=True)
+            legacy_file.unlink(missing_ok=True)
 
 
 class TestAudiobookDelete:

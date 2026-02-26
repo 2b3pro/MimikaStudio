@@ -3,8 +3,8 @@
   <br><br>
   <code>v2026.02</code>&nbsp;&nbsp;macOS (Apple Silicon) · MLX Native
   <br><br>
-  <h1>Clone any voice <i>in seconds</i></h1>
-  <p>Local-first voice cloning, text-to-speech, PDF reader, and audiobook creator.<br>Optimized for Apple Silicon with native Metal acceleration via MLX.</p>
+  <h1>Clone any voice <i>in seconds</i> + Agentic MCP Support</h1>
+  <p>Local-first voice cloning, text-to-speech, Read Aloud document reader, audiobook creator, and agentic MCP automation.<br>Optimized for Apple Silicon with native Metal acceleration via MLX.</p>
   <br>
   <a href="https://boltzmannentropy.github.io/mimikastudio.github.io/"><strong>Get Started</strong></a>&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;<a href="https://github.com/BoltzmannEntropy/MimikaStudio"><strong>View on GitHub</strong></a>
   <br><br>
@@ -16,11 +16,17 @@
 
 > **Custom Voice Cloning** | **Text-to-Speech** | **PDF Read Aloud** | **Audiobook Creator** | **MCP & API Dashboard**
 
-A local-first application for **macOS (Apple Silicon)**, with four core capabilities: **clone any voice** from just 3 seconds of audio using three voice cloning engines (Qwen3-TTS, Chatterbox, Kokoro), generate **high-quality text-to-speech** with multiple engines and premium voices, **read PDFs aloud** with sentence-by-sentence highlighting, and **convert PDFs to audiobooks** using Kokoro voices.
+A local-first application for **macOS (Apple Silicon)** with four integrated capabilities and production-oriented workflows: **clone any voice** from as little as 3 seconds of reference audio using multiple engines (Qwen3-TTS and Chatterbox), generate **high-quality text-to-speech** with fast and expressive model families (Kokoro and Supertonic), **read documents aloud** with sentence-level highlighting and synchronized progression (PDF, DOCX, EPUB, Markdown, TXT), and **convert full documents to audiobooks** with queueable chapter generation and reusable voice presets. MimikaStudio runs fully on-device, includes first-run model download management, and exposes both UI and API paths for advanced local automation.
 
-> **License:** Source code is licensed under **Business Source License 1.1 (BSL-1.1)**, and binary distributions are licensed under the **Mimika Binary Distribution License**. See [LICENSE](LICENSE), [BINARY-LICENSE.txt](BINARY-LICENSE.txt), and the website [License page](https://boltzmannentropy.github.io/mimikastudio.github.io/license.html).
+License: Source code is licensed under Business Source License 1.1 (BSL-1.1), and binary distributions are licensed under the MimikaStudio Binary Distribution License. See LICENSE, BINARY-LICENSE.txt, and the website License page.
 
-> **Note:** Windows support is planned for a future release. The codebase is cross-platform, but we currently only provide pre-built binaries for macOS.
+[LICENSE](LICENSE) · [BINARY-LICENSE.txt](BINARY-LICENSE.txt) · [Website License page](https://boltzmannentropy.github.io/mimikastudio.github.io/license.html)
+
+The codebase is cross-platform, but we currently provide macOS binaries only.
+
+[we currently provide macOS binaries only.](https://boltzmannentropy.github.io/mimikastudio.github.io/)
+
+> **Note:** Windows support is planned for a future release.
 
 ## Stars
 
@@ -28,7 +34,7 @@ A local-first application for **macOS (Apple Silicon)**, with four core capabili
 
 [![Star History Chart](https://api.star-history.com/svg?repos=BoltzmannEntropy/MimikaStudio&type=Date)](https://star-history.com/#BoltzmannEntropy/MimikaStudio&Date)
 
-![Model Manager](assets/04-mimikastudio.png)
+![MimikaStudio Main Screen](assets/01-mimikastudio.png)
 
 ---
 
@@ -41,50 +47,88 @@ A local-first application for **macOS (Apple Silicon)**, with four core capabili
 | [Qwen3-TTS 1.7B Base](https://github.com/QwenLM/Qwen3-TTS) | 1.7B | Voice Cloning | 10 languages |
 | [Qwen3-TTS 0.6B CustomVoice](https://github.com/QwenLM/Qwen3-TTS) | 600M | Preset Speakers | 4 languages (en, zh, ja, ko) |
 | [Qwen3-TTS 1.7B CustomVoice](https://github.com/QwenLM/Qwen3-TTS) | 1.7B | Preset Speakers | 4 languages (en, zh, ja, ko) |
+| [Qwen3-TTS 0.6B Base-8bit](https://github.com/QwenLM/Qwen3-TTS) | 600M | Voice Cloning (8-bit) | 10 languages |
+| [Qwen3-TTS 1.7B Base-8bit](https://github.com/QwenLM/Qwen3-TTS) | 1.7B | Voice Cloning (8-bit) | 10 languages |
+| [Qwen3-TTS 0.6B CustomVoice-8bit](https://github.com/QwenLM/Qwen3-TTS) | 600M | Preset Speakers (8-bit) | 4 languages (en, zh, ja, ko) |
+| [Qwen3-TTS 1.7B CustomVoice-8bit](https://github.com/QwenLM/Qwen3-TTS) | 1.7B | Preset Speakers (8-bit) | 4 languages (en, zh, ja, ko) |
 | [Chatterbox Multilingual](https://github.com/resemble-ai/chatterbox) | — | Voice Cloning | 23 languages |
+| [Supertonic-2](https://huggingface.co/Supertone/supertonic-2) | — | Multilingual TTS (ONNX) | 5 languages (en, ko, es, pt, fr) |
+| [CosyVoice3 ONNX](https://huggingface.co/ayousanz/cosy-voice3-onnx) | — | Expressive TTS (ONNX backend) | 10 languages (auto, en, zh, ja, ko, de, es, fr, it, ru) |
+
+> **Note:** CosyVoice3 uses its own dedicated ONNX model package (`ayousanz/cosy-voice3-onnx`) and is independent from `Supertonic-2`.
 
 ![MimikaStudio](assets/01-mimikastudio.png)
 
 ## Audio Samples
 
-All samples below were generated using philosophical texts. Click to listen.
+Listen to samples generated by each TTS engine. For voice cloning demos, compare the reference voice with the generated output.
 
-### Kokoro TTS (Fast British/American Voices)
+### Qwen3-TTS Voice Clone
 
-| Voice | Sample |
-|-------|--------|
-| **Emma** (British RP Female) | [kokoro-bf_emma-sample.wav](assets/audio-samples/kokoro-bf_emma-sample.wav) |
-| **George** (British Male) | [kokoro-bm_george-sample.wav](assets/audio-samples/kokoro-bm_george-sample.wav) |
-| **Lily** (British Female) | [kokoro-bf_lily-sample.wav](assets/audio-samples/kokoro-bf_lily-sample.wav) |
+Voice cloning from a 3-second sample. Compare the reference voice with the generated output.
 
-> *"The unexamined life is not worth living. To find yourself, think for yourself. I know that I know nothing, and in this lies my wisdom."*
+| Voice | Reference | Generated |
+|-------|-----------|-----------|
+| **Natasha Clone** (Genesis4 Style) | [Natasha.wav](backend/data/samples/voices/Natasha.wav) | [qwen3-natasha-genesis4-demo.wav](backend/data/pregenerated/qwen3-natasha-genesis4-demo.wav) |
+| **Suzan Clone** (Genesis4 Style) | [Suzan.wav](backend/data/samples/voices/Suzan.wav) | [qwen3-suzan-genesis4-demo.wav](backend/data/pregenerated/qwen3-suzan-genesis4-demo.wav) |
+| **Natasha (Hebrew)** (Cross-language) | [Natasha.wav](backend/data/samples/voices/Natasha.wav) | [qwen3-natasha-hebrew-demo.wav](backend/data/pregenerated/qwen3-natasha-hebrew-demo.wav) |
 
 ### Qwen3-TTS CustomVoice (Preset Speakers)
 
 | Speaker | Sample |
 |---------|--------|
-| **Ryan** (English, dynamic male) | [qwen3-custom-ryan-sample.wav](assets/audio-samples/qwen3-custom-ryan-sample.wav) |
-| **Aiden** (English, sunny male) | [qwen3-custom-aiden-sample.wav](assets/audio-samples/qwen3-custom-aiden-sample.wav) |
-
-> *"The unexamined life is not worth living. To find yourself, think for yourself. I know that I know nothing, and in this lies my wisdom."*
-
-### Qwen3-TTS Voice Clone (3-Second Cloning)
-
-| Cloned Voice | Sample |
-|--------------|--------|
-| **Natasha** | [qwen3-clone-natasha-sample.wav](assets/audio-samples/qwen3-clone-natasha-sample.wav) |
-| **Suzan** | [qwen3-clone-suzan-sample.wav](assets/audio-samples/qwen3-clone-suzan-sample.wav) |
-
-> *"We are what we repeatedly do. Excellence, then, is not an act, but a habit. It is the mark of an educated mind to be able to entertain a thought without accepting it."*
+| **Ryan** (English, dynamic male, Genesis4 Style) | [qwen3-ryan-genesis4-demo.wav](backend/data/pregenerated/qwen3-ryan-genesis4-demo.wav) |
 
 ### Chatterbox Multilingual Voice Clone
 
-| Cloned Voice | Sample |
-|--------------|--------|
-| **Natasha** | [chatterbox-clone-natasha-sample.wav](assets/audio-samples/chatterbox-clone-natasha-sample.wav) |
-| **Suzan** | [chatterbox-clone-suzan-sample.wav](assets/audio-samples/chatterbox-clone-suzan-sample.wav) |
+Expressive voice cloning with emotion control. Natural, emotive speech synthesis.
 
-> *"Happiness depends upon ourselves. Knowing yourself is the beginning of all wisdom. The energy of the mind is the essence of life."*
+| Voice | Reference | Generated |
+|-------|-----------|-----------|
+| **Natasha Clone** (Emotional Speech) | [Natasha.wav](backend/data/samples/voices/Natasha.wav) | [chatterbox-natasha-demo.wav](backend/data/pregenerated/chatterbox-natasha-demo-1770830814.wav) |
+| **Suzan Clone** (Emotional Speech) | [Suzan.wav](backend/data/samples/voices/Suzan.wav) | [chatterbox-suzan-demo.wav](backend/data/pregenerated/chatterbox-suzan-demo-1770830815.wav) |
+
+### Kokoro TTS (Fast British/American Voices)
+
+| Voice | Sample |
+|-------|--------|
+| **Emma** (British RP Female) | [sentence-01-bf_emma.wav](backend/data/samples/kokoro/sentence-01-bf_emma.wav) |
+| **George** (British Male) | [sentence-02-bm_george.wav](backend/data/samples/kokoro/sentence-02-bm_george.wav) |
+| **Lily** (British Female) | [sentence-03-bf_lily.wav](backend/data/samples/kokoro/sentence-03-bf_lily.wav) |
+
+### Supertonic TTS
+
+| Voice | Sample |
+|-------|--------|
+| **Female (F1)** (Genesis4 Style) | [supertonic-f1-genesis4-demo.wav](backend/data/pregenerated/supertonic-f1-genesis4-demo.wav) |
+| **Male (M2)** (Genesis4 Style) | [supertonic-m2-genesis4-demo.wav](backend/data/pregenerated/supertonic-m2-genesis4-demo.wav) |
+
+### CosyVoice3 TTS
+
+| Voice | Sample |
+|-------|--------|
+| **Female (F1 / Eden Alias)** (Genesis4 Style) | [cosyvoice3-f1-genesis4-demo.wav](backend/data/pregenerated/cosyvoice3-f1-genesis4-demo.wav) |
+| **Male (M2 / Atlas Alias)** (Genesis4 Style) | [cosyvoice3-m2-genesis4-demo.wav](backend/data/pregenerated/cosyvoice3-m2-genesis4-demo.wav) |
+
+### Complete Pregenerated Example Index
+
+All shipped pregenerated demo files in `backend/data/pregenerated`:
+
+| Engine | File | Purpose |
+|--------|------|---------|
+| Qwen3-TTS | [qwen3-natasha-genesis4-demo.wav](backend/data/pregenerated/qwen3-natasha-genesis4-demo.wav) | Voice clone demo (Natasha, Genesis4 style) |
+| Qwen3-TTS | [qwen3-suzan-genesis4-demo.wav](backend/data/pregenerated/qwen3-suzan-genesis4-demo.wav) | Voice clone demo (Suzan, Genesis4 style) |
+| Qwen3-TTS | [qwen3-ryan-genesis4-demo.wav](backend/data/pregenerated/qwen3-ryan-genesis4-demo.wav) | Preset speaker demo (Ryan) |
+| Qwen3-TTS | [qwen3-natasha-hebrew-demo.wav](backend/data/pregenerated/qwen3-natasha-hebrew-demo.wav) | Cross-language clone demo (Hebrew) |
+| Qwen3-TTS | [qwen3-natasha-hebrew-demo.txt](backend/data/pregenerated/qwen3-natasha-hebrew-demo.txt) | Source text for Hebrew demo |
+| Chatterbox | [chatterbox-natasha-demo-1770830814.wav](backend/data/pregenerated/chatterbox-natasha-demo-1770830814.wav) | Emotional clone demo (Natasha) |
+| Chatterbox | [chatterbox-suzan-demo-1770830815.wav](backend/data/pregenerated/chatterbox-suzan-demo-1770830815.wav) | Emotional clone demo (Suzan) |
+| Supertonic | [supertonic-f1-genesis4-demo.wav](backend/data/pregenerated/supertonic-f1-genesis4-demo.wav) | Preset F1 multilingual ONNX demo |
+| Supertonic | [supertonic-m2-genesis4-demo.wav](backend/data/pregenerated/supertonic-m2-genesis4-demo.wav) | Preset M2 multilingual ONNX demo |
+| CosyVoice3 | [cosyvoice3-f1-genesis4-demo.wav](backend/data/pregenerated/cosyvoice3-f1-genesis4-demo.wav) | CosyVoice3 F1/Eden standalone ONNX demo |
+| CosyVoice3 | [cosyvoice3-m2-genesis4-demo.wav](backend/data/pregenerated/cosyvoice3-m2-genesis4-demo.wav) | CosyVoice3 M2/Atlas standalone ONNX demo |
+
+Kokoro examples are bundled under `backend/data/samples/kokoro/` and listed above in the Kokoro section.
 
 ---
 
@@ -102,6 +146,24 @@ All samples below were generated using philosophical texts. Click to listen.
 | **Flutter** | 3.x with desktop support |
 
 > **Windows & Linux:** The codebase supports these platforms, but pre-built binaries are currently macOS-only. Windows/Linux support is planned for future releases.
+
+### Unsigned DMG (Apple Gatekeeper)
+
+As of **February 19, 2026**, the MimikaStudio DMG is **not yet signed/notarized by Apple**.  
+macOS may block first launch until you explicitly allow it in security settings.
+
+1. Open the DMG and drag `MimikaStudio.app` to `Applications`.
+2. In `Applications`, right-click `MimikaStudio.app` and select `Open`.
+3. Click `Open` in the warning dialog.
+4. If macOS still blocks launch, go to:
+   `System Settings -> Privacy & Security -> Open Anyway` (for MimikaStudio), then confirm with password/Touch ID.
+5. On first launch, wait for the bundled backend to start. The startup log screen below is expected for a few seconds.
+6. On first use, click `Download` for the required model in the in-app model card.
+
+![DMG window with MimikaStudio and Applications shortcut](assets/11-mimikastudio-dmg-install-window.png)
+![Right-click Open on MimikaStudio app](assets/12-mimikastudio-dmg-open-context-menu.png)
+![MimikaStudio backend startup log during first launch](assets/13-mimikastudio-backend-startup-log.png)
+![First use model download prompt in MimikaStudio](assets/14-mimikastudio-first-use-model-download.png)
 
 ### Automated Install (Recommended)
 
@@ -131,8 +193,7 @@ After installation, start MimikaStudio:
 
 ```bash
 source venv/bin/activate
-./bin/mimikactl up          # Backend + MCP + Flutter desktop
-./bin/mimikactl up --web    # Backend + MCP + Flutter web UI
+./bin/mimikactl up          # Backend + MCP + Desktop app
 ```
 
 ### Manual Install
@@ -158,7 +219,7 @@ pip install --no-deps chatterbox-tts==0.1.6
 # Initialize database
 cd backend && python3 database.py && cd ..
 
-# Flutter (optional, for desktop/web UI)
+# Flutter (optional, for desktop app UI)
 cd flutter_app && flutter pub get && cd ..
 
 # Start
@@ -198,14 +259,10 @@ python -c "import perth; print('Perth OK')"
 ## Quick Start
 
 ```bash
-# Start all services (Backend + MCP + Flutter UI)
+# Start all services (Backend + MCP + Desktop UI)
 ./bin/mimikactl up
 
-# Or: Backend + MCP + Flutter Web UI
-./bin/mimikactl up --web
-# Then open http://127.0.0.1:5173
-
-# Or: Backend + MCP only (no Flutter)
+# Or: Backend + MCP only (no Flutter UI)
 ./bin/mimikactl up --no-flutter
 
 # Check status
@@ -231,14 +288,9 @@ Starting Flutter UI (dev mode)...
 
 ## Platforms
 
-MimikaStudio ships two UIs backed by the same local FastAPI server:
+MimikaStudio ships a desktop UI backed by the same local FastAPI server:
 
 **macOS Desktop App** (default): `./bin/mimikactl up`
-
-**Web UI** (Flutter Web): `./bin/mimikactl up --web` then open http://127.0.0.1:5173
-
-> The web UI uses the same backend and voice library as the desktop app.
-> In web mode, use **Open Document** to upload PDFs from your machine.
 
 ![MimikaStudio App Running](assets/01-mimikastudio.png)
 
@@ -272,14 +324,18 @@ MimikaStudio includes **9 premium preset speakers** across 4 languages (English,
 | **[Kokoro-82M](https://github.com/hexgrad/kokoro)** | Fast TTS | Sub-200ms latency, British RP & American accents |
 | **[Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) 0.6B/1.7B Base** | Voice Cloning | 3-second cloning, 10 languages |
 | **[Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) 0.6B/1.7B CustomVoice** | Preset Speakers | 9 premium voices, style control |
+| **Qwen3-TTS 8-bit variants (0.6B/1.7B Base + CustomVoice)** | Low-memory mode | Smaller footprint with strong quality/speed tradeoff |
 | **[Chatterbox Multilingual TTS](https://huggingface.co/spaces/ResembleAI/Chatterbox-Multilingual-TTS)** | Voice Cloning | Multilingual cloning with prompt audio |
+| **[Supertonic-2](https://huggingface.co/Supertone/supertonic-2)** | Multilingual ONNX TTS | Low-latency local synthesis across 5 languages |
+| **[CosyVoice3 ONNX](https://huggingface.co/ayousanz/cosy-voice3-onnx)** | Expressive preset TTS | Dedicated ONNX model with independent download/status and UI/API surface |
 
 ![Qwen3-TTS Voice Clone](assets/03-mimikastudio.png)
 
 ### Beyond Simple TTS
 
-- **PDF Reader with Voice**: Read PDFs aloud with sentence-by-sentence highlighting
-- **Audiobook Creator**: Convert PDFs into WAV/MP3/M4B audiobooks with smart chunking, crossfade merging, progress tracking, and chapter markers (Kokoro voices only)
+- **Read Aloud Document Reader**: Read PDF, DOCX, EPUB, Markdown, and TXT aloud with sentence-by-sentence highlighting
+- **Audiobook Creator**: Convert documents into WAV/MP3/M4B audiobooks with smart chunking, crossfade merging, progress tracking, and chapter markers (Kokoro voices only)
+- **Unified Jobs Queue**: Track every executed job (TTS, voice clone, and audiobook) with status and inline playback controls
 - **Shared Voice Library**: Voice samples shared across all cloning engines (Qwen3, Chatterbox)
 - **Model Manager**: In-app model download manager — check status and download models on demand
 - **Advanced Generation Controls**: Temperature, top_p, top_k, repetition penalty, seed
@@ -287,7 +343,8 @@ MimikaStudio includes **9 premium preset speakers** across 4 languages (English,
 - **Real-time System Monitoring**: CPU, RAM, and GPU usage in the app header
 - **Multi-LLM Support**: Claude, OpenAI, Ollama (local), or Claude Code CLI
 
-![PDF Reader & Audiobook Creator](assets/05-mimikastudio.png)
+![PDF Reader & Audiobook Creator](assets/08-mimikastudio-readaloud.png)
+![Jobs Queue](assets/15-mimikastudio-jobs-queue.png)
 
 ---
 
@@ -301,11 +358,13 @@ MimikaStudio includes **9 premium preset speakers** across 4 languages (English,
 - **Advanced Generation Controls**: Temperature, top_p, top_k, repetition penalty, seed
 - **Model Size Selection**: 0.6B (Fast) or 1.7B (Quality)
 - **Kokoro TTS**: Fast, high-quality English synthesis with 21 British/American voices (IPA transcription is not part of the current release)
-- **Default Voice Samples**: Natasha and Suzan ship with the app; user uploads stored in `backend/data/user_voices/`
-- **User Voices in UI**: Uploaded voices appear under each engine's **Your Voices** section after refresh
+- **Default Voice Samples**: Max, Natasha, Sara, and Suzan ship with the app; user uploads are stored in `~/MimikaStudio/data/user_voices/cloners/` by default (or `MIMIKA_DATA_DIR`)
+- **User Voices in UI**: Uploaded voices appear immediately under each engine's **Your Voices** section
+- **Jobs Tab**: Unified queue of TTS, voice clone, and audiobook jobs with progress, completion state, and playback controls
+- **Folder View in Settings**: View and open user home, Mimika data, logs, default voices (Natasha/Suzan), and user clone voices folders directly from the app
 - **Voice Previews**: Tap play/pause/stop to audition voices before generating
 - **Document Reader**: Read PDFs, TXT, and MD files aloud with Kokoro TTS
-- **Audiobook Creator**: Convert full PDFs to audiobook files (WAV/MP3/M4B) with smart chunking, crossfade merging, progress tracking, and playback controls (Kokoro voices only)
+- **Audiobook Creator**: Convert full documents to audiobook files (WAV/MP3/M4B) with smart chunking, crossfade merging, progress tracking, and playback controls (Kokoro voices only)
 - **CLI Tool**: Full command-line interface for Kokoro and Qwen3
 - **MCP & API Dashboard**: Built-in tab showing all MCP tools and REST endpoints with live server status
 - **MCP Server**: Full MCP integration for programmatic access to all API endpoints
@@ -320,7 +379,6 @@ MimikaStudio includes **9 premium preset speakers** across 4 languages (English,
 # Service Commands
 ./bin/mimikactl up                    # Start all services
 ./bin/mimikactl up --no-flutter       # Backend + MCP only
-./bin/mimikactl up --web              # Backend + MCP + Flutter Web UI
 ./bin/mimikactl down                  # Stop all services
 ./bin/mimikactl restart               # Restart all
 ./bin/mimikactl status                # Check status
@@ -332,7 +390,6 @@ MimikaStudio includes **9 premium preset speakers** across 4 languages (English,
 # Flutter Commands
 ./bin/mimikactl flutter start         # Start Flutter (release mode)
 ./bin/mimikactl flutter start --dev   # Start in dev mode
-./bin/mimikactl flutter start --web   # Start Flutter Web UI
 ./bin/mimikactl flutter stop          # Stop Flutter
 ./bin/mimikactl flutter build         # Build macOS app
 
@@ -646,7 +703,7 @@ The backend exposes 60+ REST endpoints via FastAPI. Full interactive docs at **h
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/audiobook/generate` | POST | Start audiobook generation from text |
-| `/api/audiobook/generate-from-file` | POST | Generate from uploaded PDF file (Kokoro voices only) |
+| `/api/audiobook/generate-from-file` | POST | Generate from uploaded document file (PDF/TXT/MD/DOCX/EPUB) |
 | `/api/audiobook/status/{job_id}` | GET | Job progress (chars/sec, ETA, chapters) |
 | `/api/audiobook/cancel/{job_id}` | POST | Cancel in-progress job |
 | `/api/audiobook/list` | GET | List generated audiobooks |
@@ -679,16 +736,16 @@ The backend exposes 60+ REST endpoints via FastAPI. Full interactive docs at **h
 
 ```bash
 # Start generation
-curl -X POST http://localhost:8000/api/audiobook/generate \
+curl -X POST http://localhost:7693/api/audiobook/generate \
   -H "Content-Type: application/json" \
   -d '{"text": "Your document text...", "title": "My Audiobook", "voice": "bf_emma", "output_format": "m4b"}'
 
 # From file
-curl -X POST http://localhost:8000/api/audiobook/generate-from-file \
+curl -X POST http://localhost:7693/api/audiobook/generate-from-file \
   -F "file=@mybook.pdf" -F "title=My Audiobook" -F "voice=bf_emma" -F "output_format=m4b"
 
 # Poll progress
-curl http://localhost:8000/api/audiobook/status/{job_id}
+curl http://localhost:7693/api/audiobook/status/{job_id}
 ```
 
 ---
@@ -707,11 +764,69 @@ The MCP server provides 50+ tools for:
 - LLM configuration
 - Audio library management
 
+### MCP Workflow Example: PDF -> Audiobook (Kokoro British Voice)
+
+This is the same JSON-RPC MCP workflow used by agent clients (Codex, Claude Code), without uploading audio anywhere.
+
+```bash
+# 1) Start backend + MCP
+./bin/mimikactl up --no-flutter
+```
+
+```bash
+# 2) (Optional) confirm Kokoro voices via MCP
+curl -s http://127.0.0.1:8010 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"tts_list_voices","arguments":{"engine":"kokoro"}}}'
+```
+
+```bash
+# 3) Start audiobook generation from a local PDF file
+curl -s http://127.0.0.1:8010 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"audiobook_generate_from_file","arguments":{"file_path":"/absolute/path/to/document.pdf","title":"My Oral Exam Notes","voice":"bf_emma","speed":1.0,"output_format":"mp3"}}}'
+```
+
+```bash
+# 4) Poll status until "completed"
+curl -s http://127.0.0.1:8010 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"audiobook_status","arguments":{"job_id":"<JOB_ID>"}}}'
+```
+
+On completion, the file is created locally in `backend/outputs/`:
+
+- `backend/outputs/audiobook-<JOB_ID>.mp3`
+- Served locally at `http://localhost:7693/audio/audiobook-<JOB_ID>.mp3`
+
+### Using Mimika MCP from Codex and Claude Code
+
+If your client is connected to the Mimika MCP server (`http://127.0.0.1:8010`), you can ask it to run the exact same flow.
+
+**Codex prompt example**
+
+```text
+Use Mimika MCP tool audiobook_generate_from_file with:
+file_path=/absolute/path/to/document.pdf
+title=My Oral Exam Notes
+voice=bf_emma
+output_format=mp3
+Then poll audiobook_status until completed and return job_id + audio_url.
+```
+
+**Claude Code prompt example**
+
+```text
+Call Mimika MCP audiobook_generate_from_file for /absolute/path/to/document.pdf
+with voice bf_emma and output_format mp3.
+Track audiobook_status every 10 seconds and report final audio_url.
+```
+
 ### MCP & API Dashboard (In-App)
 
 The **MCP & API** tab in the Flutter app provides a live dashboard showing:
 
-- **Server status** — Backend API (port 8000), MCP Server (port 8010), and API Docs availability with green/red indicators
+- **Server status** — Backend API (port 7693), MCP Server (port 8010), and API Docs availability with green/red indicators
 - **All MCP tools** grouped by category (System, Kokoro, Qwen3, Chatterbox, Audiobook, Voice Management, Models, Samples) with expandable parameter details
 - **All 60+ REST API endpoints** grouped by category with HTTP method badges (GET/POST/PUT/DELETE)
 - **Search** — Filter tools and endpoints by name, path, or description
@@ -753,9 +868,9 @@ MimikaStudio/
 │   ├── mimika                # CLI tool for TTS/voice cloning
 │   └── tts_mcp_server.py    # MCP server for programmatic access
 │
-├── pdf/                      # Place PDFs here for the PDF Reader
+├── pdf/                      # Place read-aloud documents here (pdf/txt/md/docx/epub)
 │
-├── flutter_app/              # Flutter desktop + web application (~10,100 lines Dart)
+├── flutter_app/              # Flutter desktop application (~10,100 lines Dart)
 │   ├── lib/
 │   │   ├── main.dart         # App entry, 6-tab navigation + Model Manager
 │   │   ├── screens/

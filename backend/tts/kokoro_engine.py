@@ -17,15 +17,11 @@ from typing import Optional
 import numpy as np
 import soundfile as sf
 
-try:
-    from mlx_audio.tts import load as load_tts_model
-except ImportError:
-    load_tts_model = None
+_load_tts_model_fn = None
 
-try:
-    import mlx.core as mx
-except Exception:  # pragma: no cover - fallback for non-MLX systems
-    mx = None
+# Keep MLX import lazy to avoid backend startup aborts on machines without a
+# usable Metal device context.
+mx = None
 
 logger = logging.getLogger(__name__)
 
@@ -107,10 +103,17 @@ class KokoroEngine:
         registry_file.write_text(json.dumps(self._blended_registry, indent=2))
 
     def load_model(self):
+        global _load_tts_model_fn
         if self.model is None:
-            if load_tts_model is None:
-                raise ImportError("mlx-audio package not installed. Install with: pip install -U mlx-audio")
-            self.model = load_tts_model("mlx-community/Kokoro-82M-bf16")
+            if _load_tts_model_fn is None:
+                try:
+                    from mlx_audio.tts import load as load_tts_model  # Lazy import to keep API boot stable.
+                    _load_tts_model_fn = load_tts_model
+                except Exception as e:
+                    raise ImportError(
+                        "mlx-audio package not installed or unavailable. Install with: pip install -U mlx-audio"
+                    ) from e
+            self.model = _load_tts_model_fn("mlx-community/Kokoro-82M-bf16")
         return self.model
 
     def _get_pipeline(self, lang_code: str = "a"):

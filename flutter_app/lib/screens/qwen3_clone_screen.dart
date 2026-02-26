@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:file_picker/file_picker.dart';
@@ -19,7 +20,6 @@ class Speaker {
 
 const List<Speaker> kSpeakers = [
   Speaker('Ryan', 'English', 'Dynamic male, strong rhythm', Color(0xFF2196F3)),
-  Speaker('Aiden', 'English', 'Sunny American male', Color(0xFF03A9F4)),
   Speaker('Vivian', 'Chinese', 'Bright young female', Color(0xFFE91E63)),
   Speaker('Serena', 'Chinese', 'Warm gentle female', Color(0xFFFF4081)),
   Speaker('Uncle_Fu', 'Chinese', 'Seasoned male, mellow', Color(0xFF795548)),
@@ -176,6 +176,7 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
+      final existingSelectedVoice = _selectedQwen3Voice;
       Map<String, dynamic>? systemInfo;
       try {
         systemInfo = await _api.getSystemInfo();
@@ -219,7 +220,12 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
         _pregeneratedSamples = pregeneratedSamples;
         _qwen3Info = qwen3Info;
         if (qwen3Voices.isNotEmpty) {
-          _selectedQwen3Voice = qwen3Voices[0]['name'];
+          final keepCurrent =
+              existingSelectedVoice != null &&
+              qwen3Voices.any((v) => v['name'] == existingSelectedVoice);
+          _selectedQwen3Voice = keepCurrent
+              ? existingSelectedVoice
+              : qwen3Voices[0]['name'];
         }
         _isLoading = false;
       });
@@ -315,7 +321,8 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
 
   Future<void> _uploadVoice() async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
+      type: FileType.custom,
+      allowedExtensions: const ['wav', 'wave'],
       allowMultiple: false,
       withData: true,
     );
@@ -327,13 +334,24 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
       if (dialogResult != null) {
         setState(() => _isUploading = true);
         try {
-          await _api.uploadQwen3Voice(
+          final uploadResponse = await _api.uploadQwen3Voice(
             dialogResult['name']!,
             fileBytes,
             fileName,
-            dialogResult['transcript']!,
+            dialogResult['transcript'] ?? '',
           );
-          await _loadData();
+          final uploadedName = dialogResult['name']!;
+          final uploadedVoice = uploadResponse['voice'];
+          if (uploadedVoice is Map<String, dynamic>) {
+            if (mounted) {
+              setState(() {
+                _qwen3Voices = _upsertVoice(_qwen3Voices, uploadedVoice);
+                _selectedQwen3Voice =
+                    uploadedVoice['name']?.toString() ?? uploadedName;
+              });
+            }
+          }
+          await _refreshQwen3Voices(preferredVoiceName: uploadedName);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -355,6 +373,59 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
           }
         }
       }
+    }
+  }
+
+  List<Map<String, dynamic>> _upsertVoice(
+    List<Map<String, dynamic>> current,
+    Map<String, dynamic> incoming,
+  ) {
+    final name = incoming['name']?.toString().trim() ?? '';
+    if (name.isEmpty) {
+      return current;
+    }
+    final normalized = Map<String, dynamic>.from(incoming);
+    normalized['name'] = name;
+    normalized['source'] = normalized['source'] ?? 'user';
+    normalized['transcript'] = normalized['transcript'] ?? '';
+    normalized['audio_url'] =
+        normalized['audio_url'] ??
+        '/api/qwen3/voices/${Uri.encodeComponent(name)}/audio';
+
+    final next = List<Map<String, dynamic>>.from(current)
+      ..removeWhere((voice) {
+        final candidate = voice['name']?.toString().toLowerCase() ?? '';
+        return candidate == name.toLowerCase();
+      })
+      ..add(normalized);
+    return next;
+  }
+
+  Future<void> _refreshQwen3Voices({String? preferredVoiceName}) async {
+    try {
+      final response = await _api.getQwen3Voices();
+      final voices = List<Map<String, dynamic>>.from(
+        response['voices'] as List<dynamic>? ?? const [],
+      );
+      if (!mounted) return;
+      setState(() {
+        _qwen3Voices = voices;
+        final current = _selectedQwen3Voice;
+        final keepPreferred =
+            preferredVoiceName != null &&
+            voices.any((v) => v['name'] == preferredVoiceName);
+        final keepCurrent =
+            current != null && voices.any((v) => v['name'] == current);
+        if (keepPreferred) {
+          _selectedQwen3Voice = preferredVoiceName;
+        } else if (!keepCurrent && voices.isNotEmpty) {
+          _selectedQwen3Voice = voices[0]['name'] as String?;
+        } else if (voices.isEmpty) {
+          _selectedQwen3Voice = null;
+        }
+      });
+    } catch (e) {
+      debugPrint('Failed to refresh Qwen3 voices: $e');
     }
   }
 
@@ -411,9 +482,9 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
               controller: transcriptController,
               maxLines: 3,
               decoration: const InputDecoration(
-                labelText: 'Transcript (Required)',
+                labelText: 'Transcript (Optional)',
                 hintText: 'What is said in the audio file...',
-                helperText: 'Must match exactly what is spoken',
+                helperText: 'Optional, but improves clone quality',
               ),
             ),
           ],
@@ -425,11 +496,10 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
           ),
           TextButton(
             onPressed: () {
-              if (nameController.text.isNotEmpty &&
-                  transcriptController.text.isNotEmpty) {
+              if (nameController.text.trim().isNotEmpty) {
                 Navigator.pop(context, {
-                  'name': nameController.text,
-                  'transcript': transcriptController.text,
+                  'name': nameController.text.trim(),
+                  'transcript': transcriptController.text.trim(),
                 });
               }
             },
@@ -730,6 +800,37 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
     }
   }
 
+  Future<void> _downloadAudioFile(Map<String, dynamic> file) async {
+    final audioUrl = file['audio_url'] as String?;
+    final filename = file['filename'] as String? ?? 'qwen3-audio.wav';
+    if (audioUrl == null || audioUrl.isEmpty) return;
+
+    try {
+      final bytes = await _api.downloadAudioBytes(audioUrl);
+      final ext = filename.contains('.') ? filename.split('.').last : 'wav';
+      final savePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save audio file',
+        fileName: filename,
+        type: FileType.custom,
+        allowedExtensions: [ext],
+      );
+      if (savePath == null) return;
+
+      final destination = File(savePath);
+      await destination.create(recursive: true);
+      await destination.writeAsBytes(bytes, flush: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Saved to $savePath')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to download: $e')));
+    }
+  }
+
   bool _canGenerate() {
     if (_textController.text.isEmpty) return false;
     if (_qwen3Mode == 'clone') return _selectedQwen3Voice != null;
@@ -743,12 +844,9 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
   }
 
   List<Map<String, dynamic>> _samplesForCurrentMode() {
-    const presetVoices = {'Ryan', 'Aiden'};
+    const presetVoices = {'Ryan'};
     const cloneVoices = {'Natasha', 'Suzan'};
-    const presetTitles = {
-      'Genesis 4 Preview (Ryan)',
-      'Genesis 4 Preview (Aiden)',
-    };
+    const presetTitles = {'Genesis 4 Preview (Ryan)'};
     const cloneTitles = {
       'Genesis 4 Preview (Natasha)',
       'Genesis 4 Preview (Suzan)',
@@ -1434,7 +1532,7 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Upload a 3+ second WAV clip with its transcript to clone a voice',
+                    'Upload a 3+ second WAV clip to clone a voice',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
@@ -1810,6 +1908,10 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
     final fileId = file['id'] as String;
     final filename = file['filename'] as String;
     final label = (file['label'] as String?) ?? 'Qwen3 Clone';
+    final filePathRaw = (file['file_path'] as String?)?.trim();
+    final filePath = (filePathRaw != null && filePathRaw.isNotEmpty)
+        ? filePathRaw
+        : '$_outputFolder/$filename';
     final duration = (file['duration_seconds'] as num?) ?? 0;
     final sizeMb = (file['size_mb'] as num?) ?? 0;
     final isThisPlaying = _playingAudioId == fileId;
@@ -1835,6 +1937,7 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
         children: [
           ListTile(
             dense: true,
+            isThreeLine: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12),
             leading: Icon(
               Icons.audiotrack,
@@ -1850,12 +1953,40 @@ class _Qwen3CloneScreenState extends State<Qwen3CloneScreen> {
                 fontWeight: isThisPlaying ? FontWeight.bold : FontWeight.w500,
               ),
             ),
-            subtitle: Text(meta, style: const TextStyle(fontSize: 10)),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline, size: 16),
-              onPressed: () => _deleteAudioFile(filename),
-              tooltip: 'Delete',
-              visualDensity: VisualDensity.compact,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(meta, style: const TextStyle(fontSize: 10)),
+                Text(
+                  filePath,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            trailing: SizedBox(
+              width: 72,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.download_rounded, size: 16),
+                    onPressed: () => _downloadAudioFile(file),
+                    tooltip: 'Download',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    onPressed: () => _deleteAudioFile(filename),
+                    tooltip: 'Delete',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
             ),
           ),
           Padding(
