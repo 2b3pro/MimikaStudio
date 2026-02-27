@@ -18,6 +18,7 @@ backend/venv/
 backend/venv_xtts/
 backend/data/outputs/
 backend/data/user_voices/
+backend/data/blended_voices/
 backend/*.db
 backend/data/*.db
 backend/outputs/

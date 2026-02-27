@@ -68,7 +68,7 @@ def _env_int(name: str, default: int) -> int:
 
 
 BACKEND_HOST = (os.getenv("MIMIKA_BACKEND_HOST") or "127.0.0.1").strip() or "127.0.0.1"
-BACKEND_PORT = _env_int("MIMIKA_BACKEND_PORT", 7693)
+BACKEND_PORT = _env_int("MIMIKA_BACKEND_PORT", 8899)
 
 
 def _ensure_dir_with_fallback(primary: Path, fallback: Path) -> Path:

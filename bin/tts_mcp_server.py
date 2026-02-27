@@ -2,7 +2,7 @@
 """MimikaStudio MCP Server - Exposes TTS functionality to Codex CLI.
 
 Provides MCP tools for:
-- Generating TTS audio (Kokoro, Qwen3, Chatterbox)
+- Generating TTS audio (Kokoro, Qwen3, Chatterbox, Supertonic-2, CosyVoice3)
 - Listing available voices
 - Voice management (upload, delete, update, preview)
 - Audiobook generation and management
@@ -65,7 +65,7 @@ def _setup_logging():
 LOGGER = _setup_logging()
 
 # Backend API URL
-BACKEND_URL = os.environ.get("MIMIKASTUDIO_BACKEND_URL", "http://localhost:7693")
+BACKEND_URL = os.environ.get("MIMIKASTUDIO_BACKEND_URL", "http://localhost:8899")
 
 def _call_backend(endpoint: str, method: str = "GET", data: dict = None, timeout: int = 60) -> dict:
     """Call the MimikaStudio backend API."""
@@ -202,12 +202,40 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "tts_generate_supertonic",
+        "description": "Generate speech using Supertonic-2 ONNX (10 voices, 5 languages). Returns audio file path.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "Text to convert to speech"},
+                "voice": {"type": "string", "description": "Voice style (F1-F5, M1-M5). Default: F1"},
+                "language": {"type": "string", "description": "Language code: en, ko, es, pt, fr. Default: en"},
+                "speed": {"type": "number", "description": "Speech speed (0.5-2.0, default 1.05)"}
+            },
+            "required": ["text"]
+        }
+    },
+    {
+        "name": "tts_generate_cosyvoice3",
+        "description": "Generate speech using CosyVoice3 ONNX (expressive voices, 9 languages, no PyTorch). Returns audio file path.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "Text to convert to speech"},
+                "voice": {"type": "string", "description": "Voice preset (Eden, Astra, Lyra, Nova, Iris, Orion, Atlas, Silas, Kai, Noah). Default: Eden"},
+                "language": {"type": "string", "description": "Language: Auto, EN, ZH, JA, KO, DE, ES, FR, IT, RU. Default: Auto"},
+                "speed": {"type": "number", "description": "Speech speed (0.5-2.0, default 1.0)"}
+            },
+            "required": ["text"]
+        }
+    },
+    {
         "name": "tts_list_voices",
         "description": "List available voices for a TTS engine.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "engine": {"type": "string", "enum": ["kokoro", "qwen3"], "description": "TTS engine"}
+                "engine": {"type": "string", "enum": ["kokoro", "qwen3", "supertonic", "cosyvoice3"], "description": "TTS engine"}
             },
             "required": ["engine"]
         }
@@ -682,6 +710,36 @@ def handle_tool_call(name: str, arguments: dict) -> str:
             audio_url = f"{BACKEND_URL}{result['audio_url']}"
             return f"Audio generated: {audio_url}"
 
+        elif name == "tts_generate_supertonic":
+            text = arguments.get("text", "")
+            voice = arguments.get("voice", "F1")
+            language = arguments.get("language", "en")
+            speed = arguments.get("speed", 1.05)
+
+            result = _call_backend("/api/supertonic/generate", "POST", {
+                "text": text,
+                "voice": voice,
+                "language": language,
+                "speed": speed
+            }, timeout=300)
+            audio_url = f"{BACKEND_URL}{result['audio_url']}"
+            return f"Audio generated: {audio_url}"
+
+        elif name == "tts_generate_cosyvoice3":
+            text = arguments.get("text", "")
+            voice = arguments.get("voice", "Eden")
+            language = arguments.get("language", "Auto")
+            speed = arguments.get("speed", 1.0)
+
+            result = _call_backend("/api/cosyvoice3/generate", "POST", {
+                "text": text,
+                "voice": voice,
+                "language": language,
+                "speed": speed
+            }, timeout=300)
+            audio_url = f"{BACKEND_URL}{result['audio_url']}"
+            return f"Audio generated: {audio_url}"
+
         elif name == "tts_list_voices":
             engine = arguments.get("engine", "kokoro")
 
@@ -699,6 +757,18 @@ def handle_tool_call(name: str, arguments: dict) -> str:
                 voices = result.get("voices", [])
                 voice_list = [f"{v['name']} (source: {v.get('source', 'unknown')})" for v in voices]
                 return "Qwen3 voices:\n" + "\n".join(voice_list)
+
+            elif engine == "supertonic":
+                result = _call_backend("/api/supertonic/voices")
+                voices = result.get("voices", [])
+                voice_list = [f"{v.get('code', 'unknown')} ({v.get('gender', '')})" for v in voices]
+                return "Supertonic voices:\n" + "\n".join(voice_list)
+
+            elif engine == "cosyvoice3":
+                result = _call_backend("/api/cosyvoice3/voices")
+                voices = result.get("voices", [])
+                voice_list = [f"{v.get('code', 'unknown')} ({v.get('gender', '')})" for v in voices]
+                return "CosyVoice3 voices:\n" + "\n".join(voice_list)
 
             return f"Unknown engine: {engine}"
 
